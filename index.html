@@ -998,17 +998,20 @@ function normalizePythonCode(code){
 /* 简单语法高亮 */
 function highlightPython(code){
   let h=escHtml(code);
+  // 先用占位符保护注释和字符串，避免后续正则误匹配
+  const tokens=[];
+  function protect(m){tokens.push(m);return '\x00'+(tokens.length-1)+'\x00'}
   // 注释
-  h=h.replace(/(#.*)/g,'<span class="cmt">$1</span>');
-  // 字符串（简化：双引号单引号）
-  h=h.replace(/(&quot;(?:[^&]|&(?!quot;))*?&quot;)/g,'<span class="str">$1</span>');
-  h=h.replace(/(&#39;(?:[^&]|&(?!#39;))*?&#39;)/g,'<span class="str">$1</span>');
-  // 数字
-  h=h.replace(/\b(\d+\.?\d*)\b/g,'<span class="num">$1</span>');
+  h=h.replace(/(#.*)/g,protect);
+  // 字符串
+  h=h.replace(/(&quot;(?:[^&]|&(?!quot;))*?&quot;)/g,protect);
+  h=h.replace(/(&#39;(?:[^&]|&(?!#39;))*?&#39;)/g,protect);
   // 内建函数
   h=h.replace(/\b(print|input|len|range|int|str|float|list|dict|tuple|set|type|isinstance|open|format|round|abs|max|min|sum|sorted|map|filter|enumerate|zip|any|all|super|repr|hash|id|dir|getattr|setattr|hasattr|property|staticmethod|classmethod)\b/g,'<span class="bi">$1</span>');
   // 关键字
   h=h.replace(/\b(def|class|if|elif|else|for|while|return|import|from|as|try|except|finally|with|raise|pass|break|continue|and|or|not|in|is|lambda|yield|global|nonlocal|assert|del|True|False|None)\b/g,'<span class="kw">$1</span>');
+  // 恢复保护的注释和字符串
+  h=h.replace(/\x00(\d+)\x00/g,(_,i)=>'<span class="cmt">'+escHtml(tokens[i].replace(/^#/,''))+'</span>' if tokens[i].startsWith('#')?'<span class="cmt">'+tokens[i]+'</span>':'<span class="str">'+tokens[i]+'</span>');
   return h;
 }
 
@@ -1034,7 +1037,10 @@ function formatContent(text){
 
 function formatOption(text){
   const v=normalizeText(text);
-  if(looksLikePython(v)||v.includes('`')) return '<code class="choice-code">'+highlightPython(normalizePythonCode(v))+'</code>';
+  if(looksLikePython(v)||v.includes('`')){
+    const code=normalizePythonCode(v);
+    return '<code class="choice-code">'+escHtml(code)+'</code>';
+  }
   return '<span>'+escHtml(v)+'</span>';
 }
 
